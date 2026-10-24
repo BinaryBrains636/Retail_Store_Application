@@ -15,7 +15,8 @@ on:
     paths:
       - '03_Docker_Files/services/**'
 
-
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
 
 jobs:
   # Stage 1: Lint and Validate
@@ -60,7 +61,6 @@ jobs:
       matrix:
         service: [ui, cart, catalog, checkout, orders, users]
     env:
-      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
       ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
     steps:
       - name: Checkout code
@@ -111,7 +111,6 @@ jobs:
       matrix:
         service: [ui, cart, catalog, checkout, orders, users]
     env:
-      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
       ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
     steps:
       - name: Checkout code
@@ -145,7 +144,6 @@ jobs:
       matrix:
         service: [ui, cart, catalog, checkout, orders, users]
     env:
-      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
       ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
     steps:
       - name: Checkout code
@@ -184,7 +182,6 @@ jobs:
       matrix:
         service: [ui, cart, catalog, checkout, orders, users]
     env:
-      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
       ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
     steps:
       - name: Checkout code
@@ -246,8 +243,6 @@ jobs:
     environment:
       name: staging
       url: https://staging.retail-store.com
-    env:
-      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -282,8 +277,6 @@ jobs:
     environment:
       name: production
       url: https://retail-store.com
-    env:
-      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
