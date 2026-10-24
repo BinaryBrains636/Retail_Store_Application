@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: retail-store-app
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - name: ui
+            path: 03_Docker_Files/services/ui/chart
+          - name: cart
+            path: 03_Docker_Files/services/cart/chart
+          - name: catalog
+            path: 03_Docker_Files/services/catalog/chart
+          - name: checkout
+            path: 03_Docker_Files/services/checkout/chart
+          - name: orders
+            path: 03_Docker_Files/services/orders/chart
+          - name: users
+            path: 03_Docker_Files/services/users/chart
+  template:
+    metadata:
+      name: '{{name}}'
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/your-username/retail-store-app.git
+        targetRevision: main
+        path: '{{path}}'
+        helm:
+          valueFiles:
+            - values.yaml
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: default
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

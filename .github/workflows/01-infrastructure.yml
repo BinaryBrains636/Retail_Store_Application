@@ -1,0 +1,94 @@
+name: Infrastructure Provisioning
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "infrastructure/terraform/**"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: write
+
+env:
+  AWS_REGION: us-east-1
+  TF_VERSION: 1.5.0
+
+jobs:
+  terraform-apply:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::YOUR_ACCOUNT_ID:role/github-actions-terraform-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init (VPC)
+        run: |
+          cd infrastructure/terraform/vpc
+          terraform init
+
+      - name: Terraform Plan (VPC)
+        run: |
+          cd infrastructure/terraform/vpc
+          terraform plan -out=tfplan
+
+      - name: Terraform Apply (VPC)
+        run: |
+          cd infrastructure/terraform/vpc
+          terraform apply -auto-approve tfplan
+
+      - name: Terraform Init (EKS)
+        run: |
+          cd infrastructure/terraform/eks
+          terraform init
+
+      - name: Terraform Plan (EKS)
+        run: |
+          cd infrastructure/terraform/eks
+          terraform plan -out=tfplan
+
+      - name: Terraform Apply (EKS)
+        run: |
+          cd infrastructure/terraform/eks
+          terraform apply -auto-approve tfplan
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig --name retail-store-eks --region ${{ env.AWS_REGION }}
+
+      - name: Terraform Init (EKS Add-ons)
+        run: |
+          cd infrastructure/terraform/eks-addons
+          terraform init
+
+      - name: Terraform Plan (EKS Add-ons)
+        run: |
+          cd infrastructure/terraform/eks-addons
+          terraform plan -out=tfplan
+
+      - name: Terraform Apply (EKS Add-ons)
+        run: |
+          cd infrastructure/terraform/eks-addons
+          terraform apply -auto-approve tfplan
+
+      - name: Verify EKS Cluster
+        run: |
+          kubectl get nodes
+          kubectl get pods -n kube-system
+
+      - name: Output EKS Details
+        run: |
+          echo "EKS Cluster provisioned successfully"
+          kubectl cluster-info

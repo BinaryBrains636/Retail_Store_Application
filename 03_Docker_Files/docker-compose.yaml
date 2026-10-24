@@ -1,0 +1,310 @@
+name: retail-store-app
+networks:
+  default:
+    name: retail-store-network
+services:
+  # UI Service
+  ui:
+    build:
+      context: ./services/ui
+      dockerfile: Dockerfile
+    container_name: retail-ui
+    hostname: ui
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_TOMCAT_ACCESSLOG_ENABLED=true
+      - RETAIL_UI_ENDPOINTS_CATALOG=http://catalog:8080
+      - RETAIL_UI_ENDPOINTS_CARTS=http://cart:8080
+      - RETAIL_UI_ENDPOINTS_ORDERS=http://orders:8080
+      - RETAIL_UI_ENDPOINTS_CHECKOUT=http://checkout:8080
+      - RETAIL_UI_ENDPOINTS_USERS=http://users:8080
+      - JAVA_OPTS=-XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/urandom
+    depends_on:
+      cart:
+        condition: service_healthy
+      catalog:
+        condition: service_healthy
+      checkout:
+        condition: service_healthy
+      orders:
+        condition: service_healthy
+      users:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - default
+
+  # Cart Service
+  cart:
+    build:
+      context: ./services/cart
+      dockerfile: Dockerfile
+    container_name: retail-cart
+    hostname: cart
+    environment:
+      - SERVER_TOMCAT_ACCESSLOG_ENABLED=true
+      - RETAIL_CART_PERSISTENCE_PROVIDER=dynamodb
+      - RETAIL_CART_PERSISTENCE_DYNAMODB_ENDPOINT=http://carts-db:8000
+      - RETAIL_CART_PERSISTENCE_DYNAMODB_CREATE_TABLE=true
+      - AWS_ACCESS_KEY_ID=dummy
+      - AWS_SECRET_ACCESS_KEY=dummy
+    depends_on:
+      carts-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - default
+
+  # DynamoDB for Cart
+  carts-db:
+    image: amazon/dynamodb-local:1.20.0
+    container_name: retail-carts-db
+    hostname: carts-db
+    ports:
+      - "8000:8000"
+    volumes:
+      - carts-data:/home/dynamodblocal/data
+    healthcheck:
+      test: ["CMD-SHELL", "exit 0"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - default
+
+  # Catalog Service
+  catalog:
+    build:
+      context: ./services/catalog
+      dockerfile: Dockerfile
+    container_name: retail-catalog
+    hostname: catalog
+    environment:
+      - GIN_MODE=release
+      - RETAIL_CATALOG_PERSISTENCE_PROVIDER=mysql
+      - RETAIL_CATALOG_PERSISTENCE_PASSWORD=mysecretpassword
+      - RETAIL_CATALOG_PERSISTENCE_ENDPOINT=catalog-db:3306
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - default
+
+  # MySQL for Catalog
+  catalog-db:
+    image: mariadb:10.9
+    container_name: retail-catalog-db
+    hostname: catalog-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=mysecretpassword
+      - MYSQL_ALLOW_EMPTY_PASSWORD=true
+      - MYSQL_DATABASE=catalogdb
+      - MYSQL_USER=catalog_user
+      - MYSQL_PASSWORD=mysecretpassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - catalog-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "catalog_user", "-pmysecretpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - default
+
+  # Checkout Service
+  checkout:
+    build:
+      context: ./services/checkout
+      dockerfile: Dockerfile
+    container_name: retail-checkout
+    hostname: checkout
+    environment:
+      - RETAIL_CHECKOUT_PERSISTENCE_PROVIDER=redis
+      - RETAIL_CHECKOUT_PERSISTENCE_REDIS_URL=redis://checkout-redis:6379
+      - RETAIL_CHECKOUT_ENDPOINTS_ORDERS=http://orders:8080
+    depends_on:
+      checkout-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - default
+
+  # Redis for Checkout
+  checkout-redis:
+    image: redis:6.0-alpine
+    container_name: retail-checkout-redis
+    hostname: checkout-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    networks:
+      - default
+
+  # Orders Service
+  orders:
+    build:
+      context: ./services/orders
+      dockerfile: Dockerfile
+    container_name: retail-orders
+    hostname: orders
+    environment:
+      - SERVER_TOMCAT_ACCESSLOG_ENABLED=true
+      - RETAIL_ORDERS_PERSISTENCE_PROVIDER=postgres
+      - RETAIL_ORDERS_PERSISTENCE_ENDPOINT=orders-db:5432
+      - RETAIL_ORDERS_PERSISTENCE_NAME=orders
+      - RETAIL_ORDERS_PERSISTENCE_USERNAME=orders_user
+      - RETAIL_ORDERS_PERSISTENCE_PASSWORD=mysecretpassword
+      - RETAIL_ORDERS_MESSAGING_PROVIDER=rabbitmq
+      - RETAIL_ORDERS_MESSAGING_RABBITMQ_ADDRESSES=rabbitmq:5672
+      - RETAIL_ORDERS_MESSAGING_RABBITMQ_USERNAME=rabbitmq
+      - RETAIL_ORDERS_MESSAGING_RABBITMQ_PASSWORD=mysecretpassword
+    depends_on:
+      orders-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - default
+
+  # PostgreSQL for Orders
+  orders-db:
+    image: postgres:16.1
+    container_name: retail-orders-db
+    hostname: orders-db
+    environment:
+      - POSTGRES_PASSWORD=mysecretpassword
+      - POSTGRES_DB=orders
+      - POSTGRES_USER=orders_user
+    ports:
+      - "5432:5432"
+    volumes:
+      - orders-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d orders -U orders_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+    networks:
+      - default
+
+  # RabbitMQ for Orders messaging
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: retail-rabbitmq
+    hostname: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=rabbitmq
+      - RABBITMQ_DEFAULT_PASS=mysecretpassword
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - default
+
+  # Users/Auth Service (NEW)
+  users:
+    build:
+      context: ./services/users
+      dockerfile: Dockerfile
+    container_name: retail-users
+    hostname: users
+    environment:
+      - SERVER_TOMCAT_ACCESSLOG_ENABLED=true
+      - RETAIL_USERS_PERSISTENCE_PROVIDER=postgres
+      - RETAIL_USERS_PERSISTENCE_ENDPOINT=users-db:5432
+      - RETAIL_USERS_PERSISTENCE_NAME=users
+      - RETAIL_USERS_PERSISTENCE_USERNAME=users_user
+      - RETAIL_USERS_PERSISTENCE_PASSWORD=mysecretpassword
+    depends_on:
+      users-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - default
+
+  # PostgreSQL for Users
+  users-db:
+    image: postgres:16.1
+    container_name: retail-users-db
+    hostname: users-db
+    environment:
+      - POSTGRES_PASSWORD=mysecretpassword
+      - POSTGRES_DB=users
+      - POSTGRES_USER=users_user
+    ports:
+      - "5433:5432"
+    volumes:
+      - users-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d users -U users_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+    networks:
+      - default
+
+volumes:
+  carts-data:
+  catalog-data:
+  orders-data:
+  users-data:
+  rabbitmq-data:

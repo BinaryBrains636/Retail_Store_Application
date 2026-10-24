@@ -1,0 +1,11 @@
+# Example terraform.tfvars for RDS Database
+# Copy this file to terraform.tfvars and update with your values
+
+# Database credentials (required)
+db_username = "admin"
+db_password = "ChangeThisSecurePassword123!"
+
+# Optional: Override defaults
+# db_instance_class = "db.t3.micro"
+# allocated_storage = 20
+# max_allocated_storage = 100

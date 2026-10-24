@@ -1,0 +1,14 @@
+{{- if .Values.configMap.create -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "users.configMapName" . }}
+data:
+  RETAIL_USERS_PERSISTENCE_PROVIDER: {{ .Values.app.persistence.provider }}
+  {{- if (eq "postgres" .Values.app.persistence.provider) }}
+  RETAIL_USERS_PERSISTENCE_ENDPOINT: {{ .Values.app.persistence.endpoint }}
+  RETAIL_USERS_PERSISTENCE_NAME: {{ .Values.app.persistence.name }}
+  RETAIL_USERS_PERSISTENCE_USERNAME: {{ .Values.app.persistence.username }}
+  RETAIL_USERS_PERSISTENCE_PASSWORD: {{ .Values.app.persistence.password }}
+  {{- end }}
+{{- end }}

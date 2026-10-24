@@ -1,0 +1,4 @@
+#!/bin/sh
+# Maven Wrapper script - for building the Users service
+# This is a placeholder - in production, download the actual Maven wrapper
+exec mvn "$@"

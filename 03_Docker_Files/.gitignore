@@ -1,0 +1,23 @@
+# Environment variables
+.env
+
+# Docker volumes
+services/*/target/
+
+# Build artifacts
+*.jar
+*.class
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
