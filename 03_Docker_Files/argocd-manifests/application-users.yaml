@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/your-username/retail-store-app.git
+    repoURL: https://github.com/BinaryBrains636/Retail_Store_Application.git
     targetRevision: main
     path: 03_Docker_Files/services/users/chart
     helm:

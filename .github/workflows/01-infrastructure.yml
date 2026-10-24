@@ -23,16 +23,40 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (Access Key)
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::YOUR_ACCOUNT_ID:role/github-actions-terraform-role
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ secrets.AWS_ACCESS_KEY_ID == '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-terraform-role
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init (ECR)
+        run: |
+          cd infrastructure/terraform/ecr
+          terraform init
+
+      - name: Terraform Plan (ECR)
+        run: |
+          cd infrastructure/terraform/ecr
+          terraform plan -out=tfplan
+
+      - name: Terraform Apply (ECR)
+        run: |
+          cd infrastructure/terraform/ecr
+          terraform apply -auto-approve tfplan
 
       - name: Terraform Init (VPC)
         run: |

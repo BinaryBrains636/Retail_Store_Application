@@ -1,0 +1,44 @@
+name: Setup ECR Repositories (Simple)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: write
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  create-repositories:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (Access Key)
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ secrets.AWS_ACCESS_KEY_ID == '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-app-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Create ECR repositories
+        run: |
+          for service in ui cart catalog orders checkout users; do
+            aws ecr create-repository --repository-name retail-store/$service --region ${{ env.AWS_REGION }} || true
+          done
+
+      - name: List repositories
+        run: |
+          aws ecr describe-repositories --region ${{ env.AWS_REGION }}
