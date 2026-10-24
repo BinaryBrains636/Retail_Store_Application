@@ -61,7 +61,7 @@ jobs:
       matrix:
         service: [ui, cart, catalog, checkout, orders, users]
     env:
-      ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+      ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION || 'us-east-1' }}.amazonaws.com
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -111,7 +111,7 @@ jobs:
       matrix:
         service: [ui, cart, catalog, checkout, orders, users]
     env:
-      ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+      ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION || 'us-east-1' }}.amazonaws.com
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -144,7 +144,7 @@ jobs:
       matrix:
         service: [ui, cart, catalog, checkout, orders, users]
     env:
-      ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+      ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION || 'us-east-1' }}.amazonaws.com
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -182,7 +182,7 @@ jobs:
       matrix:
         service: [ui, cart, catalog, checkout, orders, users]
     env:
-      ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+      ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION || 'us-east-1' }}.amazonaws.com
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
