@@ -86,6 +86,39 @@ jobs:
           cd infrastructure/terraform/vpc
           terraform init
 
+      - name: Import existing VPC resources if not in state
+        run: |
+          cd infrastructure/terraform/vpc
+          # Import VPC
+          if ! terraform state list | grep -q "aws_vpc.main"; then
+            VPC_ID=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=retail-store-vpc" --query "Vpcs[0].VpcId" --output text 2>/dev/null || echo "")
+            if [ -n "$VPC_ID" ]; then
+              terraform import aws_vpc.main "$VPC_ID" || echo "Failed to import VPC"
+            fi
+          fi
+          # Import Internet Gateway
+          if ! terraform state list | grep -q "aws_internet_gateway.igw"; then
+            IGW_ID=$(aws ec2 describe-internet-gateways --filters "Name=tag:Name,Values=retail-store-igw" --query "InternetGateways[0].InternetGatewayId" --output text 2>/dev/null || echo "")
+            if [ -n "$IGW_ID" ]; then
+              terraform import aws_internet_gateway.igw "$IGW_ID" || echo "Failed to import IGW"
+            fi
+          fi
+          # Import subnets
+          for i in 0 1; do
+            if ! terraform state list | grep -q "aws_subnet.public\[${i}\]"; then
+              SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=tag:Name,Values=retail-store-public-${i}" --query "Subnets[0].SubnetId" --output text 2>/dev/null || echo "")
+              if [ -n "$SUBNET_ID" ]; then
+                terraform import 'aws_subnet.public["${i}"]' "$SUBNET_ID" || echo "Failed to import public subnet ${i}"
+              fi
+            fi
+            if ! terraform state list | grep -q "aws_subnet.private\[${i}\]"; then
+              SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=tag:Name,Values=retail-store-private-${i}" --query "Subnets[0].SubnetId" --output text 2>/dev/null || echo "")
+              if [ -n "$SUBNET_ID" ]; then
+                terraform import 'aws_subnet.private["${i}"]' "$SUBNET_ID" || echo "Failed to import private subnet ${i}"
+              fi
+            fi
+          done
+
       - name: Terraform Plan (VPC)
         run: |
           cd infrastructure/terraform/vpc
