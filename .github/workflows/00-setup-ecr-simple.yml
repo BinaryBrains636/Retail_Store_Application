@@ -34,6 +34,13 @@ jobs:
         working-directory: ./infrastructure/terraform/ecr
         run: terraform init
 
+      - name: Import existing ECR repositories
+        working-directory: ./infrastructure/terraform/ecr
+        run: |
+          for service in ui cart catalog checkout orders users; do
+            terraform import aws_ecr_repository.retail_store["${service}"] retail-store/${service} 2>/dev/null || true
+          done
+
       - name: Terraform Plan
         working-directory: ./infrastructure/terraform/ecr
         run: terraform plan -out=tfplan -var="aws_region=${{ env.AWS_REGION }}"
