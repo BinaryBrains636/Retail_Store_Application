@@ -93,31 +93,54 @@ jobs:
           if ! terraform state list | grep -q "aws_vpc.main"; then
             VPC_ID=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=retail-store-vpc" --query "Vpcs[0].VpcId" --output text 2>/dev/null || echo "")
             if [ -n "$VPC_ID" ]; then
+              echo "Importing VPC: $VPC_ID"
               terraform import aws_vpc.main "$VPC_ID" || echo "Failed to import VPC"
+            else
+              echo "VPC not found by tag, trying CIDR"
+              VPC_ID=$(aws ec2 describe-vpcs --filters "Name=cidr,Values=10.0.0.0/16" --query "Vpcs[0].VpcId" --output text 2>/dev/null || echo "")
+              if [ -n "$VPC_ID" ]; then
+                echo "Importing VPC by CIDR: $VPC_ID"
+                terraform import aws_vpc.main "$VPC_ID" || echo "Failed to import VPC"
+              fi
             fi
           fi
           # Import Internet Gateway
           if ! terraform state list | grep -q "aws_internet_gateway.igw"; then
             IGW_ID=$(aws ec2 describe-internet-gateways --filters "Name=tag:Name,Values=retail-store-igw" --query "InternetGateways[0].InternetGatewayId" --output text 2>/dev/null || echo "")
             if [ -n "$IGW_ID" ]; then
+              echo "Importing IGW: $IGW_ID"
               terraform import aws_internet_gateway.igw "$IGW_ID" || echo "Failed to import IGW"
             fi
           fi
-          # Import subnets
-          for i in 0 1; do
-            if ! terraform state list | grep -q "aws_subnet.public\[${i}\]"; then
-              SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=tag:Name,Values=retail-store-public-${i}" --query "Subnets[0].SubnetId" --output text 2>/dev/null || echo "")
-              if [ -n "$SUBNET_ID" ]; then
-                terraform import 'aws_subnet.public["${i}"]' "$SUBNET_ID" || echo "Failed to import public subnet ${i}"
-              fi
+          # Import subnets by CIDR
+          if ! terraform state list | grep -q "aws_subnet.public\[0\]"; then
+            SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=cidr,Values=10.0.0.0/24" --query "Subnets[0].SubnetId" --output text 2>/dev/null || echo "")
+            if [ -n "$SUBNET_ID" ]; then
+              echo "Importing public subnet 0: $SUBNET_ID"
+              terraform import 'aws_subnet.public["0"]' "$SUBNET_ID" || echo "Failed to import public subnet 0"
             fi
-            if ! terraform state list | grep -q "aws_subnet.private\[${i}\]"; then
-              SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=tag:Name,Values=retail-store-private-${i}" --query "Subnets[0].SubnetId" --output text 2>/dev/null || echo "")
-              if [ -n "$SUBNET_ID" ]; then
-                terraform import 'aws_subnet.private["${i}"]' "$SUBNET_ID" || echo "Failed to import private subnet ${i}"
-              fi
+          fi
+          if ! terraform state list | grep -q "aws_subnet.public\[1\]"; then
+            SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=cidr,Values=10.0.1.0/24" --query "Subnets[0].SubnetId" --output text 2>/dev/null || echo "")
+            if [ -n "$SUBNET_ID" ]; then
+              echo "Importing public subnet 1: $SUBNET_ID"
+              terraform import 'aws_subnet.public["1"]' "$SUBNET_ID" || echo "Failed to import public subnet 1"
             fi
-          done
+          fi
+          if ! terraform state list | grep -q "aws_subnet.private\[0\]"; then
+            SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=cidr,Values=10.0.2.0/24" --query "Subnets[0].SubnetId" --output text 2>/dev/null || echo "")
+            if [ -n "$SUBNET_ID" ]; then
+              echo "Importing private subnet 0: $SUBNET_ID"
+              terraform import 'aws_subnet.private["0"]' "$SUBNET_ID" || echo "Failed to import private subnet 0"
+            fi
+          fi
+          if ! terraform state list | grep -q "aws_subnet.private\[1\]"; then
+            SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=cidr,Values=10.0.3.0/24" --query "Subnets[0].SubnetId" --output text 2>/dev/null || echo "")
+            if [ -n "$SUBNET_ID" ]; then
+              echo "Importing private subnet 1: $SUBNET_ID"
+              terraform import 'aws_subnet.private["1"]' "$SUBNET_ID" || echo "Failed to import private subnet 1"
+            fi
+          fi
 
       - name: Terraform Plan (VPC)
         run: |
