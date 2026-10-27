@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 env:
-  AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+  AWS_REGION: ${{ secrets.AWS_REGION || 'us-west-2' }}
   TF_VERSION: 1.5.0
 
 jobs:
@@ -42,12 +42,12 @@ jobs:
       - name: Terraform Plan (ECR)
         run: |
           cd infrastructure/terraform/ecr
-          terraform plan -out=tfplan
+          terraform plan -out=tfplan -var="aws_region=${{ env.AWS_REGION }}"
 
       - name: Terraform Apply (ECR)
         run: |
           cd infrastructure/terraform/ecr
-          terraform apply -auto-approve tfplan
+          terraform apply -auto-approve tfplan -var="aws_region=${{ env.AWS_REGION }}"
 
       - name: Terraform Init (VPC)
         run: |
@@ -57,12 +57,20 @@ jobs:
       - name: Terraform Plan (VPC)
         run: |
           cd infrastructure/terraform/vpc
-          terraform plan -out=tfplan
+          terraform plan -out=tfplan -var="aws_region=${{ env.AWS_REGION }}"
 
       - name: Terraform Apply (VPC)
         run: |
           cd infrastructure/terraform/vpc
-          terraform apply -auto-approve tfplan
+          terraform apply -auto-approve tfplan -var="aws_region=${{ env.AWS_REGION }}"
+
+      - name: Get VPC Outputs
+        id: vpc-outputs
+        run: |
+          cd infrastructure/terraform/vpc
+          echo "vpc_id=$(terraform output -raw vpc_id)" >> $GITHUB_OUTPUT
+          echo "public_subnet_ids=$(terraform output -raw public_subnet_ids)" >> $GITHUB_OUTPUT
+          echo "private_subnet_ids=$(terraform output -raw private_subnet_ids)" >> $GITHUB_OUTPUT
 
       - name: Terraform Init (EKS)
         run: |
@@ -72,16 +80,22 @@ jobs:
       - name: Terraform Plan (EKS)
         run: |
           cd infrastructure/terraform/eks
-          terraform plan -out=tfplan
+          terraform plan -out=tfplan -var="vpc_id=${{ steps.vpc-outputs.outputs.vpc_id }}" -var="aws_region=${{ env.AWS_REGION }}"
 
       - name: Terraform Apply (EKS)
         run: |
           cd infrastructure/terraform/eks
-          terraform apply -auto-approve tfplan
+          terraform apply -auto-approve tfplan -var="vpc_id=${{ steps.vpc-outputs.outputs.vpc_id }}" -var="aws_region=${{ env.AWS_REGION }}"
+
+      - name: Get EKS Outputs
+        id: eks-outputs
+        run: |
+          cd infrastructure/terraform/eks
+          echo "cluster_name=$(terraform output -raw cluster_name)" >> $GITHUB_OUTPUT
 
       - name: Configure kubectl
         run: |
-          aws eks update-kubeconfig --name retail-store-eks --region ${{ env.AWS_REGION }}
+          aws eks update-kubeconfig --name ${{ steps.eks-outputs.outputs.cluster_name }} --region ${{ env.AWS_REGION }}
 
       - name: Terraform Init (EKS Add-ons)
         run: |
@@ -91,12 +105,12 @@ jobs:
       - name: Terraform Plan (EKS Add-ons)
         run: |
           cd infrastructure/terraform/eks-addons
-          terraform plan -out=tfplan
+          terraform plan -out=tfplan -var="cluster_name=${{ steps.eks-outputs.outputs.cluster_name }}" -var="aws_region=${{ env.AWS_REGION }}"
 
       - name: Terraform Apply (EKS Add-ons)
         run: |
           cd infrastructure/terraform/eks-addons
-          terraform apply -auto-approve tfplan
+          terraform apply -auto-approve tfplan -var="cluster_name=${{ steps.eks-outputs.outputs.cluster_name }}" -var="aws_region=${{ env.AWS_REGION }}"
 
       - name: Verify EKS Cluster
         run: |
