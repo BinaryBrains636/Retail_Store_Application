@@ -8,11 +8,8 @@ spec:
 {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
 {{- end }}
-  progressDeadlineSeconds: 600
   strategy:
-    rollingUpdate:
-      maxUnavailable: 1
-    type: RollingUpdate
+    type: Recreate
   selector:
     matchLabels:
       {{- include "catalog.selectorLabels" . | nindent 6 }}
