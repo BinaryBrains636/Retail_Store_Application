@@ -38,9 +38,11 @@ securityContext:
   runAsUser: 1000
 
 service:
-  type: ClusterIP
+  type: LoadBalancer
   port: 80
-  # annotations: {}
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
   # loadBalancerClass: ""
   # nodePort: 30000
 
