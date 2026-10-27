@@ -47,7 +47,7 @@ jobs:
       - name: Terraform Apply (ECR)
         run: |
           cd infrastructure/terraform/ecr
-          terraform apply -auto-approve tfplan -var="aws_region=${{ env.AWS_REGION }}"
+          terraform apply -auto-approve tfplan
 
       - name: Terraform Init (VPC)
         run: |
@@ -62,7 +62,7 @@ jobs:
       - name: Terraform Apply (VPC)
         run: |
           cd infrastructure/terraform/vpc
-          terraform apply -auto-approve tfplan -var="aws_region=${{ env.AWS_REGION }}"
+          terraform apply -auto-approve tfplan
 
       - name: Get VPC Outputs
         id: vpc-outputs
@@ -85,7 +85,7 @@ jobs:
       - name: Terraform Apply (EKS)
         run: |
           cd infrastructure/terraform/eks
-          terraform apply -auto-approve tfplan -var="vpc_id=${{ steps.vpc-outputs.outputs.vpc_id }}" -var="aws_region=${{ env.AWS_REGION }}"
+          terraform apply -auto-approve tfplan
 
       - name: Get EKS Outputs
         id: eks-outputs
@@ -110,7 +110,7 @@ jobs:
       - name: Terraform Apply (EKS Add-ons)
         run: |
           cd infrastructure/terraform/eks-addons
-          terraform apply -auto-approve tfplan -var="cluster_name=${{ steps.eks-outputs.outputs.cluster_name }}" -var="aws_region=${{ env.AWS_REGION }}"
+          terraform apply -auto-approve tfplan
 
       - name: Verify EKS Cluster
         run: |
