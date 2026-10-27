@@ -39,7 +39,20 @@ jobs:
           cd infrastructure/terraform/ecr
           terraform init
 
+      - name: Check if ECR repositories exist
+        id: check-ecr
+        run: |
+          cd infrastructure/terraform/ecr
+          if aws ecr describe-repositories --repository-names retail-store/ui retail-store/cart retail-store/catalog retail-store/checkout retail-store/orders retail-store/users --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "ecr_exists=true" >> $GITHUB_OUTPUT
+            echo "ECR repositories already exist, skipping creation"
+          else
+            echo "ecr_exists=false" >> $GITHUB_OUTPUT
+            echo "ECR repositories do not exist, will create"
+          fi
+
       - name: Import existing ECR repositories
+        if: steps.check-ecr.outputs.ecr_exists == 'true'
         run: |
           cd infrastructure/terraform/ecr
           for service in ui cart catalog checkout orders users; do
@@ -47,11 +60,13 @@ jobs:
           done
 
       - name: Terraform Plan (ECR)
+        if: steps.check-ecr.outputs.ecr_exists == 'false'
         run: |
           cd infrastructure/terraform/ecr
           terraform plan -out=tfplan -var="aws_region=${{ env.AWS_REGION }}"
 
       - name: Terraform Apply (ECR)
+        if: steps.check-ecr.outputs.ecr_exists == 'false'
         run: |
           cd infrastructure/terraform/ecr
           terraform apply -auto-approve tfplan
