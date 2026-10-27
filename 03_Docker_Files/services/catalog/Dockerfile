@@ -1,4 +1,4 @@
-# Build Stage
+# Build Stage - Fixed permission issue
 FROM golang:1.23-alpine AS build-env
 
 WORKDIR /app
