@@ -137,7 +137,12 @@ jobs:
             --values custom-values.yaml \
             --create-namespace \
             --wait \
-            --timeout 5m
+            --timeout 10m
+
+      - name: Show pod logs if deployment failed
+        if: failure()
+        run: |
+          kubectl get pods -n default -l app.kubernetes.io/instance=${{ matrix.service }} -o name | head -1 | xargs -I {} kubectl logs {} -n default --tail=50 || true
 
       - name: Verify deployment
         run: |
