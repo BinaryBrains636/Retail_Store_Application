@@ -16,7 +16,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "retail-store-terraform-state"
+    bucket         = "retail-store-terraform-state-538707363561"
     key            = "eks-addons/terraform.tfstate"
     region         = "us-west-2"
     encrypt        = true

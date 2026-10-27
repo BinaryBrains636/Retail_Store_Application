@@ -12,8 +12,10 @@ provider "aws" {
   region = var.aws_region
 }
 
+data "aws_caller_identity" "current" {}
+
 resource "aws_s3_bucket" "terraform_state" {
-  bucket = "retail-store-terraform-state"
+  bucket = "retail-store-terraform-state-${data.aws_caller_identity.current.account_id}"
 
   tags = {
     Name        = "Terraform State Bucket"
