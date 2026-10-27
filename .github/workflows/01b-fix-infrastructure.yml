@@ -1,0 +1,209 @@
+name: Infrastructure Recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      fix_nat_gateway:
+        description: 'Recreate NAT gateway if deleted'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      fix_node_group:
+        description: 'Recreate EKS node group if failed'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: write
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION || 'us-west-2' }}
+  TF_VERSION: 1.5.0
+
+jobs:
+  infrastructure-recovery:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Check NAT Gateway Status
+        id: check-nat
+        if: inputs.fix_nat_gateway == 'true'
+        run: |
+          echo "Checking NAT gateway status..."
+          VPC_ID=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=retail-store-vpc" --query "Vpcs[0].VpcId" --output text 2>/dev/null || echo "")
+          if [ -z "$VPC_ID" ]; then
+            echo "VPC not found, skipping NAT gateway check"
+            echo "needs_fix=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          NAT_ID=$(aws ec2 describe-nat-gateways --filter "Name=vpc-id,Values=$VPC_ID" --query "NatGateways[?State=='deleted'].NatGatewayId" --output text 2>/dev/null || echo "")
+          if [ -n "$NAT_ID" ]; then
+            echo "Found deleted NAT gateway: $NAT_ID"
+            echo "needs_fix=true" >> $GITHUB_OUTPUT
+            echo "vpc_id=$VPC_ID" >> $GITHUB_OUTPUT
+          else
+            ACTIVE_NAT=$(aws ec2 describe-nat-gateways --filter "Name=vpc-id,Values=$VPC_ID" --query "NatGateways[?State=='available'].NatGatewayId" --output text 2>/dev/null || echo "")
+            if [ -n "$ACTIVE_NAT" ]; then
+              echo "NAT gateway is active: $ACTIVE_NAT"
+              echo "needs_fix=false" >> $GITHUB_OUTPUT
+            else
+              echo "No NAT gateway found, needs creation"
+              echo "needs_fix=true" >> $GITHUB_OUTPUT
+              echo "vpc_id=$VPC_ID" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Terraform Init (VPC)
+        if: steps.check-nat.outputs.needs_fix == 'true'
+        run: |
+          cd infrastructure/terraform/vpc
+          terraform init
+
+      - name: Recreate NAT Gateway
+        if: steps.check-nat.outputs.needs_fix == 'true'
+        run: |
+          cd infrastructure/terraform/vpc
+          terraform plan -out=tfplan -var="aws_region=${{ env.AWS_REGION }}"
+          terraform apply -auto-approve tfplan
+          echo "NAT gateway recreated successfully"
+
+      - name: Check EKS Node Group Status
+        id: check-nodegroup
+        if: inputs.fix_node_group == 'true'
+        run: |
+          echo "Checking EKS node group status..."
+          CLUSTER_NAME="retail-store-eks"
+          NODEGROUP_NAME="retail-store-node-group"
+          
+          STATUS=$(aws eks describe-nodegroup --cluster-name $CLUSTER_NAME --nodegroup-name $NODEGROUP_NAME --region ${{ env.AWS_REGION }} --query "nodegroup.status" --output text 2>/dev/null || echo "")
+          
+          if [ "$STATUS" == "CREATE_FAILED" ] || [ "$STATUS" == "DEGRADED" ]; then
+            echo "Node group in failed state: $STATUS"
+            echo "needs_fix=true" >> $GITHUB_OUTPUT
+            echo "cluster_name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+            echo "nodegroup_name=$NODEGROUP_NAME" >> $GITHUB_OUTPUT
+          elif [ "$STATUS" == "ACTIVE" ]; then
+            echo "Node group is active, checking node health..."
+            NODES_READY=$(aws eks list-nodegroups --cluster-name $CLUSTER_NAME --region ${{ env.AWS_REGION }} --query "nodegroups" --output text | wc -l)
+            if [ "$NODES_READY" -eq "0" ]; then
+              echo "No ready nodes found, needs recreation"
+              echo "needs_fix=true" >> $GITHUB_OUTPUT
+              echo "cluster_name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+              echo "nodegroup_name=$NODEGROUP_NAME" >> $GITHUB_OUTPUT
+            else
+              echo "Node group is healthy"
+              echo "needs_fix=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Node group status: $STATUS"
+            echo "needs_fix=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Delete Failed Node Group
+        if: steps.check-nodegroup.outputs.needs_fix == 'true'
+        run: |
+          echo "Deleting failed node group: ${{ steps.check-nodegroup.outputs.nodegroup_name }}"
+          aws eks delete-nodegroup \
+            --cluster-name ${{ steps.check-nodegroup.outputs.cluster_name }} \
+            --nodegroup-name ${{ steps.check-nodegroup.outputs.nodegroup_name }} \
+            --region ${{ env.AWS_REGION }}
+          
+          echo "Waiting for node group deletion..."
+          aws eks wait nodegroup-deleted \
+            --cluster-name ${{ steps.check-nodegroup.outputs.cluster_name }} \
+            --nodegroup-name ${{ steps.check-nodegroup.outputs.nodegroup_name }} \
+            --region ${{ env.AWS_REGION }} || true
+          
+          echo "Node group deleted successfully"
+
+      - name: Get VPC Outputs
+        id: vpc-outputs
+        if: steps.check-nodegroup.outputs.needs_fix == 'true'
+        run: |
+          cd infrastructure/terraform/vpc
+          terraform init
+          echo "vpc_id=$(terraform output -raw vpc_id)" >> $GITHUB_OUTPUT
+          echo "private_subnet_ids=$(terraform output -raw private_subnet_ids)" >> $GITHUB_OUTPUT
+
+      - name: Terraform Init (EKS)
+        if: steps.check-nodegroup.outputs.needs_fix == 'true'
+        run: |
+          cd infrastructure/terraform/eks
+          terraform init
+
+      - name: Recreate EKS Node Group
+        if: steps.check-nodegroup.outputs.needs_fix == 'true'
+        run: |
+          cd infrastructure/terraform/eks
+          terraform plan -out=tfplan -var="vpc_id=${{ steps.vpc-outputs.outputs.vpc_id }}" -var="aws_region=${{ env.AWS_REGION }}"
+          terraform apply -auto-approve tfplan
+          echo "Node group recreated successfully"
+
+      - name: Wait for Nodes to be Ready
+        if: steps.check-nodegroup.outputs.needs_fix == 'true'
+        run: |
+          echo "Waiting for nodes to join the cluster..."
+          aws eks wait nodegroup-active \
+            --cluster-name ${{ steps.check-nodegroup.outputs.cluster_name }} \
+            --nodegroup-name ${{ steps.check-nodegroup.outputs.nodegroup_name }} \
+            --region ${{ env.AWS_REGION }}
+          
+          echo "Configuring kubectl..."
+          aws eks update-kubeconfig --name ${{ steps.check-nodegroup.outputs.cluster_name }} --region ${{ env.AWS_REGION }}
+          
+          echo "Waiting for nodes to be Ready..."
+          kubectl wait --for=condition=Ready nodes --all --timeout=600s
+          
+          echo "Nodes are ready:"
+          kubectl get nodes
+
+      - name: Verify Cluster Health
+        if: steps.check-nodegroup.outputs.needs_fix == 'true'
+        run: |
+          echo "Checking cluster health..."
+          kubectl get nodes
+          kubectl get pods -n kube-system
+          
+          echo "Checking CNI pods..."
+          kubectl get pods -n kube-system -l k8s-app=aws-node
+
+      - name: Summary
+        run: |
+          echo "=== Infrastructure Recovery Summary ==="
+          if [ "${{ steps.check-nat.outputs.needs_fix }}" == "true" ]; then
+            echo "✅ NAT gateway recreated"
+          else
+            echo "ℹ️  NAT gateway: no action needed"
+          fi
+          
+          if [ "${{ steps.check-nodegroup.outputs.needs_fix }}" == "true" ]; then
+            echo "✅ EKS node group recreated"
+          else
+            echo "ℹ️  EKS node group: no action needed"
+          fi
+          
+          echo ""
+          echo "Infrastructure recovery completed successfully"
