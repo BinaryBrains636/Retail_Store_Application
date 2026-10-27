@@ -18,6 +18,7 @@ RUN apk --no-cache add ca-certificates curl
 WORKDIR /root/
 
 COPY --from=build-env /app/catalog .
+RUN chmod +x catalog
 
 EXPOSE 8080
 

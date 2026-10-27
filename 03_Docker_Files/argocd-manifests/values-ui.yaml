@@ -1,0 +1,4 @@
+image:
+  repository: 538707363561.dkr.ecr.us-west-2.amazonaws.com/retail-store/ui
+  tag: latest
+  pullPolicy: IfNotPresent
