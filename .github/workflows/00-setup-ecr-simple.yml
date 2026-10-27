@@ -34,6 +34,8 @@ jobs:
         working-directory: ./infrastructure/terraform/state
         run: |
           terraform init
+          terraform import aws_s3_bucket.terraform_state retail-store-terraform-state 2>/dev/null || true
+          terraform import aws_dynamodb_table.terraform_state_lock terraform-state-lock 2>/dev/null || true
           terraform plan -out=tfplan -var="aws_region=${{ env.AWS_REGION }}"
           terraform apply -auto-approve tfplan
 
