@@ -43,11 +43,16 @@ jobs:
         working-directory: ./infrastructure/terraform/ecr
         run: terraform init
 
-      - name: Import existing ECR repositories
+      - name: Import existing ECR repositories if not in state
         working-directory: ./infrastructure/terraform/ecr
         run: |
           for service in ui cart catalog checkout orders users; do
-            terraform import aws_ecr_repository.retail_store["${service}"] retail-store/${service} 2>/dev/null || true
+            if ! terraform state list | grep -q "aws_ecr_repository.retail_store\[\"${service}\"\]"; then
+              echo "Importing ${service} repository..."
+              terraform import aws_ecr_repository.retail_store["${service}"] retail-store/${service} || echo "Failed to import ${service}, may not exist"
+            else
+              echo "${service} already in state, skipping import"
+            fi
           done
 
       - name: Terraform Plan
