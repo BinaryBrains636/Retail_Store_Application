@@ -12,10 +12,8 @@ provider "aws" {
   region = var.aws_region
 }
 
-data "aws_caller_identity" "current" {}
-
 resource "aws_s3_bucket" "terraform_state" {
-  bucket = "retail-store-terraform-state-${data.aws_caller_identity.current.account_id}"
+  bucket = "retail-store-terraform-state-538707363561"
 
   tags = {
     Name        = "Terraform State Bucket"
@@ -67,7 +65,7 @@ resource "aws_dynamodb_table" "terraform_state_lock" {
 }
 
 output "s3_bucket_name" {
-  value = aws_s3_bucket.terraform_state.id
+  value = aws_s3_bucket.terraform_state.bucket
 }
 
 output "dynamodb_table_name" {
