@@ -34,14 +34,17 @@ Tag is set to: `sha-925f55b` (the last built version)
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
 ```
 
-### Port Forward to Access UI
+### Access via LoadBalancer (Recommended)
+ArgoCD is exposed via AWS LoadBalancer:
+- **URL:** https://ae49642de40f0487cadbf3f45aac30f0-410167994.us-west-2.elb.amazonaws.com
+- **Username:** admin
+- **Password:** k8BsuMgpH6lnfhIs
+
+### Port Forward (Alternative)
 ```bash
 kubectl port-forward svc/argocd-server -n argocd 8080:443
 ```
-
 Then access at: https://localhost:8080
-- Username: admin
-- Password: (from command above)
 
 ### CLI Access
 ```bash
