@@ -1,4 +1,4 @@
-name: Setup ECR Repositories (Simple)
+name: Setup ECR Repositories (Terraform)
 
 on:
   workflow_dispatch:
@@ -7,7 +7,8 @@ permissions:
   contents: write
 
 env:
-  AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+  AWS_REGION: ${{ secrets.AWS_REGION || 'us-west-2' }}
+  TERRAFORM_VERSION: 1.5.0
 
 jobs:
   create-repositories:
@@ -24,11 +25,22 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Create ECR repositories
-        run: |
-          for service in ui cart catalog orders checkout users; do
-            aws ecr create-repository --repository-name retail-store/$service --region ${{ env.AWS_REGION }} || true
-          done
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Init
+        working-directory: ./infrastructure/terraform/ecr
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: ./infrastructure/terraform/ecr
+        run: terraform plan -out=tfplan -var="aws_region=${{ env.AWS_REGION }}"
+
+      - name: Terraform Apply
+        working-directory: ./infrastructure/terraform/ecr
+        run: terraform apply -auto-approve tfplan
 
       - name: List repositories
         run: |
