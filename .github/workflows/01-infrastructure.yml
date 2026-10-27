@@ -39,6 +39,13 @@ jobs:
           cd infrastructure/terraform/ecr
           terraform init
 
+      - name: Import existing ECR repositories
+        run: |
+          cd infrastructure/terraform/ecr
+          for service in ui cart catalog checkout orders users; do
+            terraform import aws_ecr_repository.retail_store["${service}"] retail-store/${service} 2>/dev/null || true
+          done
+
       - name: Terraform Plan (ECR)
         run: |
           cd infrastructure/terraform/ecr
