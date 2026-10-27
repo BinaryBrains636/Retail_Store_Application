@@ -45,10 +45,15 @@ jobs:
           echo "TAGS=latest $SHA_TAG" >> $GITHUB_ENV
           echo "IMAGE_TAG=$SHA_TAG" >> $GITHUB_ENV
 
+      - name: Verify Dockerfile
+        run: |
+          cd 03_Docker_Files/services/${{ matrix.service }}
+          head -5 Dockerfile
+
       - name: Build Docker image
         run: |
           cd 03_Docker_Files/services/${{ matrix.service }}
-          docker build --no-cache -t $IMAGE_BASE:latest .
+          DOCKER_BUILDKIT=1 docker build --no-cache --pull -t $IMAGE_BASE:latest .
 
       - name: Push to ECR
         run: |
