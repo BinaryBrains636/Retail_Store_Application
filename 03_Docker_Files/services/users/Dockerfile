@@ -18,11 +18,11 @@ COPY mvnw .
 COPY pom.xml .
 
 RUN chmod +x mvnw
-RUN ./mvnw dependency:go-offline -B -q
+RUN mvn dependency:go-offline -B -q
 
 COPY ./src ./src
 
-RUN ./mvnw -DskipTests package -q && \
+RUN mvn -DskipTests package -q && \
     mv /target/users-0.0.1-SNAPSHOT.jar /app.jar
 
 # Package Stage
