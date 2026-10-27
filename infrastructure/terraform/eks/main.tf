@@ -34,7 +34,7 @@ data "aws_subnets" "private" {
 resource "aws_eks_cluster" "retail_store" {
   name     = "${var.environment_name}-eks"
   role_arn = aws_iam_role.eks_cluster.arn
-  version  = "1.28"
+  version  = "1.34"
 
   vpc_config {
     subnet_ids = data.aws_subnets.private.ids
