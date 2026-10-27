@@ -4,21 +4,21 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - "applications/**"
+      - "03_Docker_Files/services/**"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 env:
-  AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+  AWS_REGION: ${{ secrets.AWS_REGION || 'us-west-2' }}
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [ui, cart, catalog, orders, checkout]
+        service: [ui, cart, catalog, orders, checkout, users]
 
     steps:
       - name: Checkout code
@@ -45,7 +45,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          cd applications/${{ matrix.service }}
+          cd 03_Docker_Files/services/${{ matrix.service }}
           docker build -t $IMAGE_BASE:latest .
 
       - name: Push to ECR
@@ -61,7 +61,7 @@ jobs:
 
       - name: Deploy to EKS
         run: |
-          cd applications/${{ matrix.service }}
+          cd 03_Docker_Files/services/${{ matrix.service }}
           kubectl set image deployment/${{ matrix.service }} ${{ matrix.service }}=$IMAGE_BASE:sha-${GITHUB_SHA::7} -n default
 
       - name: Verify deployment
