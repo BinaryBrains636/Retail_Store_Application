@@ -20,7 +20,7 @@ provider "aws" {
 }
 
 locals {
-  services = ["ui", "cart", "catalog", "checkout", "orders", "users"]
+  services = ["ui", "cart", "catalog", "checkout", "orders"]
 }
 
 resource "aws_ecr_repository" "retail_store" {
