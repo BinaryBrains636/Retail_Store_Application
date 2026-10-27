@@ -1,38 +1,24 @@
-# Build Stage
-FROM public.ecr.aws/amazonlinux/amazonlinux:2023 AS build-env
+FROM node:20-alpine AS build
+WORKDIR /usr/src/app
+COPY --chown=node:node package*.json ./
+COPY --chown=node:node . .
+RUN yarn install --frozen-lockfile
+RUN yarn build
+USER node
 
-RUN dnf --setopt=install_weak_deps=False install -q -y \
-    maven \
-    java-21-amazon-corretto-headless \
-    which \
-    tar \
-    gzip \
-    && \
-    dnf clean all
 
-VOLUME /tmp
-WORKDIR /
-
-COPY .mvn .mvn
-COPY mvnw .
-COPY pom.xml .
-
-RUN ./mvnw dependency:go-offline -B -q
-
-COPY ./src ./src
-
-RUN ./mvnw -DskipTests package -q && \
-    mv /target/checkout-0.0.1-SNAPSHOT.jar /app.jar
-
-# Package Stage
 FROM public.ecr.aws/amazonlinux/amazonlinux:2023
 
+# We tell DNF not to install Recommends and Suggests packages, which are
+# weak dependencies in DNF terminology, thus keeping our installed set of
+# packages as minimal as possible.
 RUN dnf --setopt=install_weak_deps=False install -q -y \
-    java-21-amazon-corretto-headless \
+    nodejs20 \
     shadow-utils \
-    curl \
     && \
     dnf clean all
+
+RUN alternatives --install /usr/bin/node node /usr/bin/node-20 90
 
 ENV APPUSER=appuser
 ENV APPUID=1000
@@ -45,14 +31,10 @@ RUN useradd \
     --uid "$APPUID" \
     "$APPUSER"
 
-ENV JAVA_TOOL_OPTIONS=
-ENV SPRING_PROFILES_ACTIVE=prod
-
 WORKDIR /app
 USER appuser
 
-COPY --chown=appuser:appuser --from=build-env /app.jar .
+COPY --chown=node:node --from=build /usr/src/app/node_modules ./node_modules
+COPY --chown=node:node --from=build /usr/src/app/dist ./dist
 
-EXPOSE 8080
-
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
+ENTRYPOINT [ "node", "dist/main.js" ]
