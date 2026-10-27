@@ -18,6 +18,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         service: [ui, cart, catalog, orders, checkout, users]
 
@@ -74,6 +75,7 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         service: [ui, cart, catalog, orders, checkout, users]
 
