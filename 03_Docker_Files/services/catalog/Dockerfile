@@ -8,7 +8,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o catalog .
+RUN CGO_ENABLED=0 GOOS=linux go build -o catalog . && chmod +x catalog
 
 # Package Stage
 FROM alpine:3.19
@@ -18,7 +18,7 @@ RUN apk --no-cache add ca-certificates curl
 WORKDIR /root/
 
 COPY --from=build-env /app/catalog .
-RUN chmod +x catalog
+RUN chmod +x catalog && ls -la catalog
 
 EXPOSE 8080
 
