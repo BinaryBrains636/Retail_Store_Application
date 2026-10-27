@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [ui, cart, catalog, orders, checkout, users]
+        service: [ui, cart, catalog, orders, checkout]
 
     steps:
       - name: Checkout code
@@ -77,7 +77,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [ui, cart, catalog, orders, checkout, users]
+        service: [ui, cart, catalog, orders, checkout]
 
     steps:
       - name: Checkout code
