@@ -2,13 +2,18 @@
 FROM public.ecr.aws/amazonlinux/amazonlinux:2023 AS build-env
 
 RUN dnf --setopt=install_weak_deps=False install -q -y \
-    maven \
     java-21-amazon-corretto-headless \
     which \
     tar \
     gzip \
+    curl \
     && \
     dnf clean all
+
+# Install Maven 3.9.9 which supports Java 21
+RUN curl -sL https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz | tar xz -C /opt && \
+    ln -s /opt/apache-maven-3.9.9 /opt/maven && \
+    ln -s /opt/maven/bin/mvn /usr/local/bin/mvn
 
 VOLUME /tmp
 WORKDIR /
