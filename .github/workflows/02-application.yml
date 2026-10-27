@@ -48,7 +48,7 @@ jobs:
       - name: Build Docker image
         run: |
           cd 03_Docker_Files/services/${{ matrix.service }}
-          docker build -t $IMAGE_BASE:latest .
+          docker build --no-cache -t $IMAGE_BASE:latest .
 
       - name: Push to ECR
         run: |
