@@ -30,9 +30,13 @@ FROM public.ecr.aws/amazonlinux/amazonlinux:2023
 RUN dnf --setopt=install_weak_deps=False install -q -y \
     java-21-amazon-corretto-headless \
     shadow-utils \
-    curl \
     && \
     dnf clean all
+
+# use curl-full to use "telnet://" scheme
+# https://docs.aws.amazon.com/linux/al2023/ug/curl-minimal.html
+RUN dnf -q -y swap libcurl-minimal libcurl-full \
+    && dnf -q -y swap curl-minimal curl-full
 
 ENV APPUSER=appuser
 ENV APPUID=1000
