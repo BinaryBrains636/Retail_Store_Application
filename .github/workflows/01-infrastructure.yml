@@ -86,45 +86,6 @@ jobs:
           cd infrastructure/terraform/vpc
           terraform init
 
-      - name: Force delete existing conflicting VPC resources
-        run: |
-          echo "Checking for existing VPC with CIDR 10.0.0.0/16"
-          VPC_ID=$(aws ec2 describe-vpcs --filters "Name=cidr,Values=10.0.0.0/16" --query "Vpcs[0].VpcId" --output text 2>/dev/null || echo "")
-          if [ -n "$VPC_ID" ]; then
-            echo "Found existing VPC: $VPC_ID - deleting to avoid conflicts"
-            # Delete subnets first
-            for subnet_id in $(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" --query "Subnets[].SubnetId" --output text 2>/dev/null); do
-              echo "Deleting subnet: $subnet_id"
-              aws ec2 delete-subnet --subnet-id "$subnet_id" 2>/dev/null || true
-            done
-            # Delete internet gateway
-            IGW_ID=$(aws ec2 describe-internet-gateways --filters "Name=attachment.vpc-id,Values=$VPC_ID" --query "InternetGateways[0].InternetGatewayId" --output text 2>/dev/null || echo "")
-            if [ -n "$IGW_ID" ]; then
-              echo "Detaching and deleting IGW: $IGW_ID"
-              aws ec2 detach-internet-gateway --internet-gateway-id "$IGW_ID" --vpc-id "$VPC_ID" 2>/dev/null || true
-              aws ec2 delete-internet-gateway --internet-gateway-id "$IGW_ID" 2>/dev/null || true
-            fi
-            # Delete NAT gateway
-            NAT_ID=$(aws ec2 describe-nat-gateways --filter "Name=vpc-id,Values=$VPC_ID" --query "NatGateways[0].NatGatewayId" --output text 2>/dev/null || echo "")
-            if [ -n "$NAT_ID" ]; then
-              echo "Deleting NAT gateway: $NAT_ID"
-              aws ec2 delete-nat-gateway --nat-gateway-id "$NAT_ID" 2>/dev/null || true
-            fi
-            # Delete route tables
-            for rt_id in $(aws ec2 describe-route-tables --filters "Name=vpc-id,Values=$VPC_ID" --query "RouteTables[].RouteTableId" --output text 2>/dev/null); do
-              # Skip main route table
-              if ! aws ec2 describe-route-tables --route-table-ids "$rt_id" --query "RouteTables[0].Associations[?Main==\`true\`]" --output text 2>/dev/null | grep -q .; then
-                echo "Deleting route table: $rt_id"
-                aws ec2 delete-route-table --route-table-id "$rt_id" 2>/dev/null || true
-              fi
-            done
-            # Delete VPC
-            echo "Deleting VPC: $VPC_ID"
-            aws ec2 delete-vpc --vpc-id "$VPC_ID" 2>/dev/null || true
-          else
-            echo "No existing VPC found"
-          fi
-
       - name: Terraform Plan (VPC)
         run: |
           cd infrastructure/terraform/vpc
